@@ -1,0 +1,19 @@
+{
+  "name": "accurate-game-loop",
+  "version": "1.0.0",
+  "description": "Accurate game loop that uses drift compensation",
+  "main": "build/index.js",
+  "scripts": {
+    "test": "ts-node-dev --respawn test.ts",
+    "build": "tsc"
+  },
+  "keywords": ["loop", "gameloop", "nodejs game loop", "accurate game loop", "fast game loop"],
+  "author": "ZeroTix",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^14.14.41"
+  },
+  "dependencies": {
+    "present": "^1.0.0"
+  }
+}
