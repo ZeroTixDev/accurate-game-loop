@@ -1,7 +1,7 @@
 {
   "name": "accurate-game-loop",
-  "version": "1.0.0",
-  "description": "Accurate game loop that uses drift compensation",
+  "version": "1.0.1",
+  "description": "A very accurate game loop, down to the nanosecond",
   "main": "build/index.js",
   "scripts": {
     "test": "ts-node-dev --respawn test.ts",
@@ -13,7 +13,5 @@
   "devDependencies": {
     "@types/node": "^14.14.41"
   },
-  "dependencies": {
-    "present": "^1.0.0"
-  }
+  "dependencies": {}
 }

@@ -1,4 +1,4 @@
-const Present = require('present');
+const nano = require('./nano.ts');
 
 interface Option {
 	log?: boolean;
@@ -15,43 +15,67 @@ module.exports = class Loop {
 		this._update = update;
 		this._running = false;
 		this._step = 1000 / this._times;
-		this._lastFrameTime = Present();
+		this._lastFrameTime = this._time();
 		this._deltas = Array<number>();
 	}
+	_ConvertSecondsToNano(sec: number): number {
+		return sec * 1e9;
+	}
+	_ConvertNanoToSeconds(nano: number): number {
+		return nano * (1 / 1e9);
+	}
+	_ConvertMsToNano(ms: number): number {
+		return ms * 1e6;
+	}
 	_time(): number {
-		return this._option?.time_fn?.() ?? Present();
+		return this._option?.time_fn?.() ?? nano();
 	}
 	start(): Loop {
 		this._running = true;
 		this._lastFrameTime = this._time();
 		this._deltas = Array<number>();
+		const expectedLength = this._ConvertMsToNano(this._step);
+		const _interval = Math.max(Math.floor(this._step - 1), 16);
 		const _this = this; // changes to _this will also happen on this
+
+		let _target = this._time();
+
 		function tick() {
 			if (!_this._running) return;
-			_this._update();
 
 			const now = _this._time();
 			const delta = now - _this._lastFrameTime;
-			_this._lastFrameTime = now;
-			if (_this._deltas.length >= _this._times / 2) {
+
+			if (_this._deltas.length >= 5) {
 				_this._deltas.shift();
 			}
 			_this._deltas.push(delta);
-			const average = _this._deltas
-				.reduce((a, b) => a + b, 0) / (_this._deltas.length || 1);
-			const drift = average * 1.05 - _this._step;
 
-			if (_this._option?.log) console.log(`${Math.round(delta)} ms`);
+			if (now <= _target) {
+				return setImmediate(tick);
+			}
+			// to make sure its going forward in time
+			_this._lastFrameTime = now;
+			_target = now + expectedLength;
+			// run the update!!
+			_this._update(_this._ConvertNanoToSeconds(delta)); // (delta in seconds)
+			if (_this._option?.log)
+				console.log(`${_this._ConvertNanoToSeconds(delta) * 1000} ms`);
 
-			setTimeout(tick, _this._step - drift);
+			const remaining = _target - _this._time();
+			if (remaining > expectedLength) {
+				// if update take too long,
+				return setTimeout(tick, _interval);
+			} else {
+				// to make it very precise, runs next event loop
+				return setImmediate(tick);
+			}
 		}
-		setTimeout(tick, _this._step);
+		// this will cause the first tick to be "late"
+		setTimeout(tick, _interval);
 		return this;
 	}
 	stop() {
 		this._running = false;
 	}
 }
-
-/* without compensating drift, the time is ahead of the _step rate by an arbitary number */
-/* with drift compensation, the time is more accurate to the _step rate */

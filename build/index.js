@@ -1,5 +1,5 @@
 "use strict";
-var Present = require('present');
+var nano = require('./nano.ts');
 module.exports = /** @class */ (function () {
     function Loop(update, _times, _option) {
         if (update === void 0) { update = function () { }; }
@@ -9,38 +9,62 @@ module.exports = /** @class */ (function () {
         this._update = update;
         this._running = false;
         this._step = 1000 / this._times;
-        this._lastFrameTime = Present();
+        this._lastFrameTime = this._time();
         this._deltas = Array();
     }
+    Loop.prototype._ConvertSecondsToNano = function (sec) {
+        return sec * 1e9;
+    };
+    Loop.prototype._ConvertNanoToSeconds = function (nano) {
+        return nano * (1 / 1e9);
+    };
+    Loop.prototype._ConvertMsToNano = function (ms) {
+        return ms * 1e6;
+    };
     Loop.prototype._time = function () {
         var _a, _b, _c;
-        return (_c = (_b = (_a = this._option) === null || _a === void 0 ? void 0 : _a.time_fn) === null || _b === void 0 ? void 0 : _b.call(_a)) !== null && _c !== void 0 ? _c : Present();
+        return (_c = (_b = (_a = this._option) === null || _a === void 0 ? void 0 : _a.time_fn) === null || _b === void 0 ? void 0 : _b.call(_a)) !== null && _c !== void 0 ? _c : nano();
     };
     Loop.prototype.start = function () {
         this._running = true;
         this._lastFrameTime = this._time();
         this._deltas = Array();
+        var expectedLength = this._ConvertMsToNano(this._step);
+        var _interval = Math.max(Math.floor(this._step - 1), 16);
         var _this = this; // changes to _this will also happen on this
+        var _target = this._time();
         function tick() {
             var _a;
             if (!_this._running)
                 return;
-            _this._update();
             var now = _this._time();
             var delta = now - _this._lastFrameTime;
-            _this._lastFrameTime = now;
-            if (_this._deltas.length >= _this._times / 2) {
+            if (_this._deltas.length >= 5) {
                 _this._deltas.shift();
             }
             _this._deltas.push(delta);
-            var average = _this._deltas
-                .reduce(function (a, b) { return a + b; }, 0) / (_this._deltas.length || 1);
-            var drift = average * 1.05 - _this._step;
+            if (now <= _target) {
+                return setImmediate(tick);
+            }
+            // to make sure its going forward in time
+            _this._lastFrameTime = now;
+            _target = now + expectedLength;
+            // run the update!!
+            _this._update(_this._ConvertNanoToSeconds(delta)); // (delta in seconds)
             if ((_a = _this._option) === null || _a === void 0 ? void 0 : _a.log)
-                console.log(Math.round(delta) + " ms");
-            setTimeout(tick, _this._step - drift);
+                console.log(_this._ConvertNanoToSeconds(delta) * 1000 + " ms");
+            var remaining = _target - _this._time();
+            if (remaining > expectedLength) {
+                // if update take too long,
+                return setTimeout(tick, _interval);
+            }
+            else {
+                // to make it very precise, runs next event loop
+                return setImmediate(tick);
+            }
         }
-        setTimeout(tick, _this._step);
+        // this will cause the first tick to be "late"
+        setTimeout(tick, _interval);
         return this;
     };
     Loop.prototype.stop = function () {
