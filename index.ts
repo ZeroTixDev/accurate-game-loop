@@ -1,4 +1,3 @@
-const nano = require('./nano.ts');
 
 interface Option {
 	log?: boolean;
@@ -18,6 +17,10 @@ module.exports = class Loop {
 		this._lastFrameTime = this._time();
 		this._deltas = Array<number>();
 	}
+	_nano() {
+		const hrtime = process.hrtime();
+		return (+hrtime[0]) * 1e9 + (+hrtime[1]);
+	}
 	_ConvertSecondsToNano(sec: number): number {
 		return sec * 1e9;
 	}
@@ -28,7 +31,7 @@ module.exports = class Loop {
 		return ms * 1e6;
 	}
 	_time(): number {
-		return this._option?.time_fn?.() ?? nano();
+		return this._option?.time_fn?.() ?? this._nano();
 	}
 	start(): Loop {
 		this._running = true;

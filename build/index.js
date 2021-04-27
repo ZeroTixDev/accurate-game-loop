@@ -1,5 +1,4 @@
 "use strict";
-var nano = require('./nano.ts');
 module.exports = /** @class */ (function () {
     function Loop(update, _times, _option) {
         if (update === void 0) { update = function () { }; }
@@ -12,6 +11,10 @@ module.exports = /** @class */ (function () {
         this._lastFrameTime = this._time();
         this._deltas = Array();
     }
+    Loop.prototype._nano = function () {
+        var hrtime = process.hrtime();
+        return (+hrtime[0]) * 1e9 + (+hrtime[1]);
+    };
     Loop.prototype._ConvertSecondsToNano = function (sec) {
         return sec * 1e9;
     };
@@ -23,7 +26,7 @@ module.exports = /** @class */ (function () {
     };
     Loop.prototype._time = function () {
         var _a, _b, _c;
-        return (_c = (_b = (_a = this._option) === null || _a === void 0 ? void 0 : _a.time_fn) === null || _b === void 0 ? void 0 : _b.call(_a)) !== null && _c !== void 0 ? _c : nano();
+        return (_c = (_b = (_a = this._option) === null || _a === void 0 ? void 0 : _a.time_fn) === null || _b === void 0 ? void 0 : _b.call(_a)) !== null && _c !== void 0 ? _c : this._nano();
     };
     Loop.prototype.start = function () {
         this._running = true;
@@ -72,5 +75,3 @@ module.exports = /** @class */ (function () {
     };
     return Loop;
 }());
-/* without compensating drift, the time is ahead of the _step rate by an arbitary number */
-/* with drift compensation, the time is more accurate to the _step rate */ 
