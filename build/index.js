@@ -21,8 +21,14 @@ module.exports = /** @class */ (function () {
     Loop.prototype._ConvertNanoToSeconds = function (nano) {
         return nano * (1 / 1e9);
     };
+    Loop.prototype._ConvertNanoToMs = function (nano) {
+        return this._ConvertNanoToSeconds(nano) * 1000;
+    };
     Loop.prototype._ConvertMsToNano = function (ms) {
         return ms * 1e6;
+    };
+    Loop.prototype.now_ms = function () {
+        return this._ConvertNanoToMs(this._time());
     };
     Loop.prototype._time = function () {
         var _a, _b, _c;
@@ -34,44 +40,58 @@ module.exports = /** @class */ (function () {
         this._deltas = Array();
         var expectedLength = this._ConvertMsToNano(this._step);
         var _interval = Math.max(Math.floor(this._step - 1), 16);
+        var jitterThreshold = 2; // 2 ms
+        var maxDeltaLength = Math.round(((1 / this._step) * 1000) / 20); // lasts 0.2s
         var _this = this; // changes to _this will also happen on this
         var _target = this._time();
-        function tick() {
-            var _a;
+        function _tick() {
+            var _a, _b, _c, _d;
             if (!_this._running)
                 return;
             var now = _this._time();
             var delta = now - _this._lastFrameTime;
-            if (_this._deltas.length >= 5) {
+            if (now <= _target) {
+                // we dont need to simulate yet!!
+                return setImmediate(_tick);
+            }
+            // average out the delta!!
+            if (_this._deltas.length >= maxDeltaLength) {
                 _this._deltas.shift();
             }
             _this._deltas.push(delta);
-            if (now <= _target) {
-                return setImmediate(tick);
-            }
-            // to make sure its going forward in time
+            var averageDelta = _this._deltas
+                .reduce(function (a, b) { return a + b; }, 0) / (_this._deltas.length || 1);
+            // shift some values !!!
             _this._lastFrameTime = now;
             _target = now + expectedLength;
-            // run the update!!
-            _this._update(_this._ConvertNanoToSeconds(delta)); // (delta in seconds)
-            if ((_a = _this._option) === null || _a === void 0 ? void 0 : _a.log)
-                console.log(_this._ConvertNanoToSeconds(delta) * 1000 + " ms");
+            if (_this._ConvertNanoToMs(Math.abs(expectedLength - averageDelta)) >= jitterThreshold) {
+                // lets shift the target !!!! :D
+                if (((_a = _this._option) === null || _a === void 0 ? void 0 : _a.logs) || ((_b = _this._option) === null || _b === void 0 ? void 0 : _b.dif_log)) {
+                    console.log(_this._ConvertNanoToMs(expectedLength - averageDelta));
+                }
+                _target += expectedLength - averageDelta;
+            }
+            // run the update !!
+            _this._update(_this._ConvertNanoToMs(delta) / 1000); // (delta in seconds)
+            if (((_c = _this._option) === null || _c === void 0 ? void 0 : _c.logs) || ((_d = _this._option) === null || _d === void 0 ? void 0 : _d.delta_log)) {
+                console.log(_this._ConvertNanoToMs(delta) + " ms");
+            }
             var remaining = _target - _this._time();
             if (remaining > expectedLength) {
-                // if update take too long,
-                return setTimeout(tick, _interval);
+                // this shouldnt happen!
+                return setTimeout(_tick, _interval);
             }
             else {
-                // to make it very precise, runs next event loop
-                return setImmediate(tick);
+                // to make it very precise, runs next event loop !!
+                return setImmediate(_tick);
             }
         }
-        // this will cause the first tick to be "late"
-        setTimeout(tick, _interval);
+        setTimeout(_tick, _interval);
         return this;
     };
     Loop.prototype.stop = function () {
         this._running = false;
+        return this;
     };
     return Loop;
 }());

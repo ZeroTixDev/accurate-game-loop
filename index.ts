@@ -1,6 +1,8 @@
 
 interface Option {
-	log?: boolean;
+	delta_log?: boolean;
+	dif_log?: boolean;
+	logs: boolean;
 	time_fn?: () => number;
 }
 
@@ -27,8 +29,14 @@ module.exports = class Loop {
 	_ConvertNanoToSeconds(nano: number): number {
 		return nano * (1 / 1e9);
 	}
+	_ConvertNanoToMs(nano: number): number {
+		return this._ConvertNanoToSeconds(nano) * 1000;
+	}
 	_ConvertMsToNano(ms: number): number {
 		return ms * 1e6;
+	}
+	now_ms(): number {
+		return this._ConvertNanoToMs(this._time());
 	}
 	_time(): number {
 		return this._option?.time_fn?.() ?? this._nano();
@@ -39,46 +47,69 @@ module.exports = class Loop {
 		this._deltas = Array<number>();
 		const expectedLength = this._ConvertMsToNano(this._step);
 		const _interval = Math.max(Math.floor(this._step - 1), 16);
+		const jitterThreshold = 2; // 2 ms
+		const maxDeltaLength = Math.round(((1 / this._step) * 1000) / 20);  // lasts 0.2s
 		const _this = this; // changes to _this will also happen on this
 
 		let _target = this._time();
 
-		function tick() {
+		function _tick() {
 			if (!_this._running) return;
 
 			const now = _this._time();
 			const delta = now - _this._lastFrameTime;
 
-			if (_this._deltas.length >= 5) {
+			if (now <= _target) {
+				// we dont need to simulate yet!!
+				return setImmediate(_tick);
+			}
+
+			// average out the delta!!
+			if (_this._deltas.length >= maxDeltaLength) {
 				_this._deltas.shift();
 			}
 			_this._deltas.push(delta);
 
-			if (now <= _target) {
-				return setImmediate(tick);
-			}
-			// to make sure its going forward in time
+			const averageDelta = _this._deltas
+				.reduce((a, b) => a + b, 0) / (_this._deltas.length || 1);
+
+			// shift some values !!!
 			_this._lastFrameTime = now;
 			_target = now + expectedLength;
-			// run the update!!
-			_this._update(_this._ConvertNanoToSeconds(delta)); // (delta in seconds)
-			if (_this._option?.log)
-				console.log(`${_this._ConvertNanoToSeconds(delta) * 1000} ms`);
+
+			if (_this._ConvertNanoToMs(Math.abs(expectedLength - averageDelta)) >= jitterThreshold) {
+				// lets shift the target !!!! :D
+
+				if (_this._option?.logs || _this._option?.dif_log) {
+					console.log(_this._ConvertNanoToMs(expectedLength - averageDelta));
+				}
+
+				_target += expectedLength - averageDelta;
+			}
+
+			// run the update !!
+			_this._update(_this._ConvertNanoToMs(delta) / 1000); // (delta in seconds)
+
+			if (_this._option?.logs || _this._option?.delta_log) {
+				console.log(`${_this._ConvertNanoToMs(delta)} ms`);
+			}
 
 			const remaining = _target - _this._time();
 			if (remaining > expectedLength) {
-				// if update take too long,
-				return setTimeout(tick, _interval);
+				// this shouldnt happen!
+				return setTimeout(_tick, _interval);
 			} else {
-				// to make it very precise, runs next event loop
-				return setImmediate(tick);
+				// to make it very precise, runs next event loop !!
+				return setImmediate(_tick);
 			}
 		}
-		// this will cause the first tick to be "late"
-		setTimeout(tick, _interval);
+
+		setTimeout(_tick, _interval);
+
 		return this;
 	}
-	stop() {
+	stop(): Loop {
 		this._running = false;
+		return this;
 	}
 }
