@@ -1,6 +1,6 @@
 const Loop = require('./index.ts');
 
-const loop = new Loop(update, 5, { logs: true }).start();
+const loop = new Loop(update, 10, { logs: true }).start();
 
 function sleep(duration: number): void {
 	const start = loop.now_ms();
@@ -10,4 +10,5 @@ function sleep(duration: number): void {
 }
 function update() {
 	// do something useful
+	// sleep(16.9);
 }

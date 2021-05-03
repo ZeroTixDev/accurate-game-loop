@@ -40,8 +40,8 @@ module.exports = /** @class */ (function () {
         this._deltas = Array();
         var expectedLength = this._ConvertMsToNano(this._step);
         var _interval = Math.max(Math.floor(this._step - 1), 16);
-        var jitterThreshold = 2; // 2 ms
-        var maxDeltaLength = Math.round(((1 / this._step) * 1000) / 20); // lasts 0.2s
+        var jitterThreshold = 3; // ms
+        var maxDeltaLength = Math.ceil(((1 / this._step) * 1000) / 2) + 1;
         var _this = this; // changes to _this will also happen on this
         var _target = this._time();
         function _tick() {
@@ -59,8 +59,8 @@ module.exports = /** @class */ (function () {
                 _this._deltas.shift();
             }
             _this._deltas.push(delta);
-            var averageDelta = _this._deltas
-                .reduce(function (a, b) { return a + b; }, 0) / (_this._deltas.length || 1);
+            var averageDelta = (_this._deltas
+                .reduce(function (a, b) { return a + b; }, 0) / (_this._deltas.length || 1));
             // shift some values !!!
             _this._lastFrameTime = now;
             _target = now + expectedLength;

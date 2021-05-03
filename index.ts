@@ -47,8 +47,8 @@ module.exports = class Loop {
 		this._deltas = Array<number>();
 		const expectedLength = this._ConvertMsToNano(this._step);
 		const _interval = Math.max(Math.floor(this._step - 1), 16);
-		const jitterThreshold = 2; // 2 ms
-		const maxDeltaLength = Math.round(((1 / this._step) * 1000) / 20);  // lasts 0.2s
+		const jitterThreshold = 3; // ms
+		const maxDeltaLength = Math.ceil(((1 / this._step) * 1000) / 2) + 1;
 		const _this = this; // changes to _this will also happen on this
 
 		let _target = this._time();
@@ -70,8 +70,8 @@ module.exports = class Loop {
 			}
 			_this._deltas.push(delta);
 
-			const averageDelta = _this._deltas
-				.reduce((a, b) => a + b, 0) / (_this._deltas.length || 1);
+			const averageDelta = (_this._deltas
+				.reduce((a, b) => a + b, 0) / (_this._deltas.length || 1));
 
 			// shift some values !!!
 			_this._lastFrameTime = now;
